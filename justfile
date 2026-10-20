@@ -26,7 +26,11 @@ install: build
 
 # Build and pack the extension
 pack: build
-  cd {{buildDir}} && zip -9r ../{{uuid}}.shell-extension.zip .
+  cd {{buildDir}} && if command -v zip >/dev/null; then zip -9r ../{{uuid}}.shell-extension.zip .; else bsdtar -a -cf ../{{uuid}}.shell-extension.zip .; fi
+
+# Run the extension and shader effects in a fresh GNOME Shell session
+test-shell: pack
+  dbus-run-session -- gnome-shell-test-tool --headless --disable-animations --extension {{uuid}}.shell-extension.zip tests/shell-smoke.js
 
 # Delete the build directory
 clean:

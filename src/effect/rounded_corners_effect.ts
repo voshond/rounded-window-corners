@@ -2,9 +2,9 @@
 
 import type {Bounds, RoundedCornerSettings} from '../utils/types.js';
 
+import Clutter from 'gi://Clutter';
 import Cogl from 'gi://Cogl';
 import GObject from 'gi://GObject';
-import Shell from 'gi://Shell';
 
 import {readShader} from '../utils/file.js';
 import {getPref} from '../utils/settings.js';
@@ -14,44 +14,26 @@ const [declarations, code] = await readShader(
     'shader/rounded_corners.frag',
 );
 
-class Uniforms {
-    bounds = 0;
-    clipRadius = 0;
-    borderWidth = 0;
-    borderColor = 0;
-    borderedAreaBounds = 0;
-    borderedAreaClipRadius = 0;
-    exponent = 0;
-    pixelStep = 0;
-}
-
 export const RoundedCornersEffect = GObject.registerClass(
     {},
-    class Effect extends Shell.GLSLEffect {
-        /**
-         * To store a uniform value, we need to know its location in the shader,
-         * which is done by calling `this.get_uniform_location()`. This is
-         * expensive, so we cache the location of uniforms when the shader is
-         * created.
-         */
-        static uniforms: Uniforms = new Uniforms();
-
-        constructor() {
-            super();
-
-            for (const k in Effect.uniforms) {
-                Effect.uniforms[k as keyof Uniforms] =
-                    this.get_uniform_location(k);
-            }
+    class Effect extends Clutter.ShaderEffect {
+        // The published GNOME Shell typings are still on 50 and do not expose
+        // the GNOME 51 uniform API yet.
+        setUniform(name: string, values: number[]) {
+            const shader = this as unknown as Clutter.ShaderEffect & {
+                set_uniform_float: (
+                    name: string,
+                    components: number,
+                    values: number[],
+                ) => void;
+            };
+            shader.set_uniform_float(name, values.length, values);
         }
 
-        vfunc_build_pipeline() {
-            this.add_glsl_snippet(
-                Cogl.SnippetHook.FRAGMENT,
-                declarations,
-                code,
-                false,
-            );
+        vfunc_get_static_snippet() {
+            const snippet = Cogl.Snippet.new(Cogl.SnippetHook.FRAGMENT, declarations, null);
+            snippet.set_replace(code);
+            return snippet;
         }
 
         /**
@@ -127,21 +109,14 @@ export const RoundedCornersEffect = GObject.registerClass(
             pixelStep: number[],
             exponent: number,
         ) {
-            const uniforms = Effect.uniforms;
-            this.set_uniform_float(uniforms.bounds, 4, bounds);
-            this.set_uniform_float(uniforms.clipRadius, 1, [radius]);
-            this.set_uniform_float(uniforms.borderWidth, 1, [borderWidth]);
-            this.set_uniform_float(uniforms.borderColor, 4, borderColor);
-            this.set_uniform_float(
-                uniforms.borderedAreaBounds,
-                4,
-                borderedAreaBounds,
-            );
-            this.set_uniform_float(uniforms.borderedAreaClipRadius, 1, [
-                borderedAreaRadius,
-            ]);
-            this.set_uniform_float(uniforms.pixelStep, 2, pixelStep);
-            this.set_uniform_float(uniforms.exponent, 1, [exponent]);
+            this.setUniform('bounds', bounds);
+            this.setUniform('clipRadius', [radius]);
+            this.setUniform('borderWidth', [borderWidth]);
+            this.setUniform('borderColor', borderColor);
+            this.setUniform('borderedAreaBounds', borderedAreaBounds);
+            this.setUniform('borderedAreaClipRadius', [borderedAreaRadius]);
+            this.setUniform('pixelStep', pixelStep);
+            this.setUniform('exponent', [exponent]);
             this.queue_repaint();
         }
     },

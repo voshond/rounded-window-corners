@@ -24,12 +24,18 @@ export async function run() {
         new LinearFilterEffect(),
         new RoundedCornersEffect(),
     ];
+    for (const index of [0, 2]) {
+        const snippet = effects[index].vfunc_get_static_snippet();
+        if (!snippet.get_post()?.includes('cogl_color_out') || snippet.get_replace())
+            throw new Error(`Shader effect ${index} must preserve the sampled window color`);
+    }
     const actors = effects.map((effect, index) => {
         const actor = new St.Widget({
             style: 'background-color: white;',
             width: 100,
             height: 100,
-            x: index * 120,
+            x: 40 + index * 120,
+            y: 100,
         });
         actor.add_effect(effect);
         Main.uiGroup.add_child(actor);

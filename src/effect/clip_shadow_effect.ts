@@ -21,7 +21,7 @@ export const ClipShadowEffect = GObject.registerClass(
     class extends Clutter.ShaderEffect {
         vfunc_get_static_snippet() {
             const snippet = Cogl.Snippet.new(Cogl.SnippetHook.FRAGMENT, declarations, null);
-            snippet.set_replace(code);
+            snippet.set_post(code);
             return snippet;
         }
     },
